@@ -11,6 +11,7 @@
   "author": "Muhammad Usman",
   "license": "ISC",
   "dependencies": {
+    "@google-cloud/vertexai": "^1.9.3",
     "axios": "^1.8.4",
     "google-auth-library": "^9.15.1",
     "open": "^10.1.0",

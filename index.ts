@@ -43,6 +43,21 @@ interface RagCorpusResponse {
   };
 }
 
+interface DeleteRagCorpusResponse {
+  name: string;
+  metadata: {
+    "@type": string;
+    genericMetadata: {
+      createTime: string;
+      updateTime: string;
+    };
+  };
+  done?: boolean;
+  response?: {
+    "@type": string;
+  };
+}
+
 interface ImportRagFilesResponse {
   name: string;
   metadata: {
@@ -126,6 +141,49 @@ async function createRagCorpus(): Promise<string> {
   }
 
   return operationResult?.response?.name as string;
+}
+
+async function deleteRagCorpus(corpusId: string): Promise<void> {
+  const deleteUrl = `https://us-central1-aiplatform.googleapis.com/v1/projects/${keys.project_id}/locations/us-central1/ragCorpora/${corpusId}`;
+
+  try {
+    const response = await client.request({
+      url: deleteUrl,
+      method: "DELETE",
+    });
+
+    const data = response.data as OperationResponse;
+    console.log(`Delete operation started: ${data.name}`);
+
+    // Poll the operation to check its status
+    const operationUrl = `https://us-central1-aiplatform.googleapis.com/v1/${data.name}`;
+
+    let operationComplete = false;
+    let operationResult;
+
+    while (!operationComplete) {
+      const operationResponse = await client.request({
+        url: operationUrl,
+        method: "GET",
+      });
+
+      operationResult = operationResponse.data as DeleteRagCorpusResponse;
+
+      if (operationResult?.done) {
+        operationComplete = true;
+        console.log("Delete operation completed:", operationResult);
+      } else {
+        console.log("Delete operation still in progress, waiting...");
+        // Wait for 2 seconds before checking again
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+      }
+    }
+
+    console.log(`RAG corpus ${corpusId} deleted successfully`);
+  } catch (error) {
+    console.error(`Error deleting RAG corpus ${corpusId}:`, error);
+    throw error;
+  }
 }
 
 async function listRagFiles(corpusName: string) {
@@ -333,23 +391,51 @@ async function makeQuery(
   }
 }
 
+// Model query with system prompts
+// async function generateContentWithGoogleSearchGrounding(
+//   projectId = 'PROJECT_ID',
+//   location = 'us-central1',
+//   model = 'gemini-1.5-flash-001'
+// ) {
+//   // Initialize Vertex with your Cloud project and location
+//   const vertexAI = new VertexAI({project: projectId, location: location});
+
+//   const generativeModelPreview = vertexAI.preview.getGenerativeModel({
+//     model: model,
+//     generationConfig: {maxOutputTokens: 256},
+//   });
+
+//   const googleSearchRetrievalTool = {
+//     googleSearchRetrieval: {},
+//   };
+
+//   const request = {
+//     contents: [{role: 'user', parts: [{text: 'Why is the sky blue?'}]}],
+//     tools: [googleSearchRetrievalTool],
+//   };
+
+//   const result = await generativeModelPreview.generateContent(request);
+//   const response = await result.response;
+//   const groundingMetadata = response.candidates[0].groundingMetadata;
+//   console.log(
+//     'Response: ',
+//     JSON.stringify(response.candidates[0].content.parts[0].text)
+//   );
+//   console.log('GroundingMetadata is: ', JSON.stringify(groundingMetadata));
+// }
+
 // Main execution
 async function main() {
   try {
-    const corpusName = await createRagCorpus();
+    // const corpusName = await createRagCorpus();
     // await getRagCorpus();
+    // await deleteRagCorpus("4532873024948404224");
     // await importFiles(corpusName);
-    await uploadFile(corpusName, "./software-engineer-resume-example.pdf");
-
-    // const retrieval = await makeRetreival(corpusName,"What is the name of the person in the resume?");
+    // await uploadFile(corpusName, "./software-engineer-resume-example.pdf");
+    // const retrieval = await makeRetreival("projects/fivegrid-ai-dev/locations/us-central1/ragCorpora/4749045807062188032","What is the name of the person in the resume?");
     // console.log(retrieval.contexts.contexts);
-
-    const query = await makeQuery(
-      corpusName,
-      "Write a greeting for the person in the resume, that includes his name and his details."
-    );
-
-    console.log(query.candidates[0].content);
+    // const query = await makeQuery("projects/fivegrid-ai-dev/locations/us-central1/ragCorpora/4749045807062188032","Write a greeting for the person in the resume, that includes his name and his details.");
+    // console.log(query.candidates[0].content);
   } catch (error) {
     console.error(error);
   }
