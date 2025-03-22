@@ -2,6 +2,12 @@ import { JWT } from "google-auth-library";
 import type { JWTInput } from "google-auth-library";
 import fs from "fs";
 import path from "path";
+import {
+  GenerateContentRequest,
+  Retrieval,
+  Tool,
+  VertexAI,
+} from "@google-cloud/vertexai";
 // Use require for JSON import
 const keys = require("./fivegrid-ai-dev.json") as JWTInput;
 
@@ -392,37 +398,252 @@ async function makeQuery(
 }
 
 // Model query with system prompts
-// async function generateContentWithGoogleSearchGrounding(
-//   projectId = 'PROJECT_ID',
-//   location = 'us-central1',
-//   model = 'gemini-1.5-flash-001'
-// ) {
-//   // Initialize Vertex with your Cloud project and location
-//   const vertexAI = new VertexAI({project: projectId, location: location});
+async function generateContentWithGoogleSearchGrounding(
+  ragCorpus: string,
+  model: string
+) {
+  // Initialize Vertex with your Cloud project and location
+  const vertexAI = new VertexAI({
+    location: "us-central1",
+    project: keys.project_id,
+    googleAuthOptions: { keyFile: "./fivegrid-ai-dev.json" },
+  });
 
-//   const generativeModelPreview = vertexAI.preview.getGenerativeModel({
-//     model: model,
-//     generationConfig: {maxOutputTokens: 256},
-//   });
+  const generativeModelPreview = vertexAI.preview.getGenerativeModel({
+    model: model,
+    generationConfig: { maxOutputTokens: 256 },
+  });
 
-//   const googleSearchRetrievalTool = {
-//     googleSearchRetrieval: {},
-//   };
+  const retrieval: Retrieval = {
+    vertexRagStore: {
+      similarityTopK: 10,
+      ragResources: [
+        {
+          ragCorpus,
+        },
+      ],
+    },
+  };
 
-//   const request = {
-//     contents: [{role: 'user', parts: [{text: 'Why is the sky blue?'}]}],
-//     tools: [googleSearchRetrievalTool],
-//   };
+  const vertexAIRetrievalTool: Tool = {
+    retrieval,
+  };
 
-//   const result = await generativeModelPreview.generateContent(request);
-//   const response = await result.response;
-//   const groundingMetadata = response.candidates[0].groundingMetadata;
-//   console.log(
-//     'Response: ',
-//     JSON.stringify(response.candidates[0].content.parts[0].text)
-//   );
-//   console.log('GroundingMetadata is: ', JSON.stringify(groundingMetadata));
-// }
+  const request: GenerateContentRequest = {
+    contents: [
+      {
+        role: "user",
+        parts: [
+          {
+            text: "mujhe charles ki skills kai bare main detail se batana janu.",
+          },
+        ],
+      },
+    ],
+    tools: [vertexAIRetrievalTool],
+    generationConfig: { temperature: 1, topP: 0.95 },
+    systemInstruction: {
+      role: "system",
+      parts: [
+        {
+          text: `You are a customer representative, you are to be nice and friendly! You can provide information either from the products list below or the data associated with our shop in the documents.
+
+[
+{
+  "id": 1,
+  "title": "Essence Mascara Lash Princess",
+  "description": "The Essence Mascara Lash Princess is a popular mascara known for its volumizing and lengthening effects. Achieve dramatic lashes with this long-lasting and cruelty-free formula.",
+  "category": "beauty",
+  "price": 9.99,
+  "discountPercentage": 7.17,
+  "rating": 4.94,
+  "stock": 5,
+  "tags": [
+    "beauty",
+    "mascara"
+  ],
+  "brand": "Essence",
+  "sku": "RCH45Q1A",
+  "weight": 2,
+  "dimensions": {
+    "width": 23.17,
+    "height": 14.43,
+    "depth": 28.01
+  },
+  "warrantyInformation": "1 month warranty",
+  "shippingInformation": "Ships in 1 month",
+  "availabilityStatus": "Low Stock",
+  "reviews": [
+    {
+      "rating": 2,
+      "comment": "Very unhappy with my purchase!",
+      "date": "2024-05-23T08:56:21.618Z",
+      "reviewerName": "John Doe",
+      "reviewerEmail": "john.doe@x.dummyjson.com"
+    },
+    {
+      "rating": 2,
+      "comment": "Not as described!",
+      "date": "2024-05-23T08:56:21.618Z",
+      "reviewerName": "Nolan Gonzalez",
+      "reviewerEmail": "nolan.gonzalez@x.dummyjson.com"
+    },
+    {
+      "rating": 5,
+      "comment": "Very satisfied!",
+      "date": "2024-05-23T08:56:21.618Z",
+      "reviewerName": "Scarlett Wright",
+      "reviewerEmail": "scarlett.wright@x.dummyjson.com"
+    }
+  ],
+  "returnPolicy": "30 days return policy",
+  "minimumOrderQuantity": 24,
+  "meta": {
+    "createdAt": "2024-05-23T08:56:21.618Z",
+    "updatedAt": "2024-05-23T08:56:21.618Z",
+    "barcode": "9164035109868",
+    "qrCode": "https://assets.dummyjson.com/public/qr-code.png"
+  },
+  "images": [
+    "https://cdn.dummyjson.com/products/images/beauty/Essence%20Mascara%20Lash%20Princess/1.png"
+  ],
+  "thumbnail": "https://cdn.dummyjson.com/products/images/beauty/Essence%20Mascara%20Lash%20Princess/thumbnail.png"
+},
+{
+  "id": 2,
+  "title": "Eyeshadow Palette with Mirror",
+  "description": "The Eyeshadow Palette with Mirror offers a versatile range of eyeshadow shades for creating stunning eye looks. With a built-in mirror, it's convenient for on-the-go makeup application.",
+  "category": "beauty",
+  "price": 19.99,
+  "discountPercentage": 5.5,
+  "rating": 3.28,
+  "stock": 44,
+  "tags": [
+    "beauty",
+    "eyeshadow"
+  ],
+  "brand": "Glamour Beauty",
+  "sku": "MVCFH27F",
+  "weight": 3,
+  "dimensions": {
+    "width": 12.42,
+    "height": 8.63,
+    "depth": 29.13
+  },
+  "warrantyInformation": "1 year warranty",
+  "shippingInformation": "Ships in 2 weeks",
+  "availabilityStatus": "In Stock",
+  "reviews": [
+    {
+      "rating": 4,
+      "comment": "Very satisfied!",
+      "date": "2024-05-23T08:56:21.618Z",
+      "reviewerName": "Liam Garcia",
+      "reviewerEmail": "liam.garcia@x.dummyjson.com"
+    },
+    {
+      "rating": 1,
+      "comment": "Very disappointed!",
+      "date": "2024-05-23T08:56:21.618Z",
+      "reviewerName": "Nora Russell",
+      "reviewerEmail": "nora.russell@x.dummyjson.com"
+    },
+    {
+      "rating": 5,
+      "comment": "Highly impressed!",
+      "date": "2024-05-23T08:56:21.618Z",
+      "reviewerName": "Elena Baker",
+      "reviewerEmail": "elena.baker@x.dummyjson.com"
+    }
+  ],
+  "returnPolicy": "30 days return policy",
+  "minimumOrderQuantity": 32,
+  "meta": {
+    "createdAt": "2024-05-23T08:56:21.618Z",
+    "updatedAt": "2024-05-23T08:56:21.618Z",
+    "barcode": "2817839095220",
+    "qrCode": "https://assets.dummyjson.com/public/qr-code.png"
+  },
+  "images": [
+    "https://cdn.dummyjson.com/products/images/beauty/Eyeshadow%20Palette%20with%20Mirror/1.png"
+  ],
+  "thumbnail": "https://cdn.dummyjson.com/products/images/beauty/Eyeshadow%20Palette%20with%20Mirror/thumbnail.png"
+},
+{
+  "id": 3,
+  "title": "Powder Canister",
+  "description": "The Powder Canister is a finely milled setting powder designed to set makeup and control shine. With a lightweight and translucent formula, it provides a smooth and matte finish.",
+  "category": "beauty",
+  "price": 14.99,
+  "discountPercentage": 18.14,
+  "rating": 3.82,
+  "stock": 59,
+  "tags": [
+    "beauty",
+    "face powder"
+  ],
+  "brand": "Velvet Touch",
+  "sku": "9EN8WLT2",
+  "weight": 8,
+  "dimensions": {
+    "width": 24.16,
+    "height": 10.7,
+    "depth": 11.07
+  },
+  "warrantyInformation": "2 year warranty",
+  "shippingInformation": "Ships in 1-2 business days",
+  "availabilityStatus": "In Stock",
+  "reviews": [
+    {
+      "rating": 5,
+      "comment": "Very happy with my purchase!",
+      "date": "2024-05-23T08:56:21.618Z",
+      "reviewerName": "Ethan Thompson",
+      "reviewerEmail": "ethan.thompson@x.dummyjson.com"
+    },
+    {
+      "rating": 4,
+      "comment": "Great value for money!",
+      "date": "2024-05-23T08:56:21.618Z",
+      "reviewerName": "Levi Hicks",
+      "reviewerEmail": "levi.hicks@x.dummyjson.com"
+    },
+    {
+      "rating": 5,
+      "comment": "Highly impressed!",
+      "date": "2024-05-23T08:56:21.618Z",
+      "reviewerName": "Hazel Gardner",
+      "reviewerEmail": "hazel.gardner@x.dummyjson.com"
+    }
+  ],
+  "returnPolicy": "60 days return policy",
+  "minimumOrderQuantity": 25,
+  "meta": {
+    "createdAt": "2024-05-23T08:56:21.618Z",
+    "updatedAt": "2024-05-23T08:56:21.618Z",
+    "barcode": "0516267971277",
+    "qrCode": "https://assets.dummyjson.com/public/qr-code.png"
+  },
+  "images": [
+    "https://cdn.dummyjson.com/products/images/beauty/Powder%20Canister/1.png"
+  ],
+  "thumbnail": "https://cdn.dummyjson.com/products/images/beauty/Powder%20Canister/thumbnail.png"
+},]`,
+        },
+      ],
+    },
+  };
+
+  const result = await generativeModelPreview.generateContent(request);
+  const response = await result.response;
+
+  const groundingMetadata = response?.candidates?.[0]?.groundingMetadata;
+  console.log(
+    "Response: ",
+    JSON.stringify(response?.candidates?.[0].content.parts[0].text)
+  );
+  console.log("GroundingMetadata is: ", JSON.stringify(groundingMetadata));
+}
 
 // Main execution
 async function main() {
@@ -436,6 +657,11 @@ async function main() {
     // console.log(retrieval.contexts.contexts);
     // const query = await makeQuery("projects/fivegrid-ai-dev/locations/us-central1/ragCorpora/4749045807062188032","Write a greeting for the person in the resume, that includes his name and his details.");
     // console.log(query.candidates[0].content);
+
+    await generateContentWithGoogleSearchGrounding(
+      "projects/fivegrid-ai-dev/locations/us-central1/ragCorpora/4749045807062188032",
+      "gemini-2.0-flash-001"
+    );
   } catch (error) {
     console.error(error);
   }
