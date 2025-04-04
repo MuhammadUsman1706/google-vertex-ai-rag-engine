@@ -94,6 +94,21 @@ interface UploadRagFileResponse {
   };
 }
 
+interface DeleteRagCorpusFileResponse {
+  name: string;
+  metadata: {
+    "@type": string;
+    genericMetadata: {
+      createTime: string;
+      updateTime: string;
+    };
+  };
+  done?: boolean;
+  response?: {
+    "@type": string;
+  };
+}
+
 async function getRagCorpus(): Promise<any> {
   const corpusUrl = `https://us-central1-aiplatform.googleapis.com/v1/projects/${keys.project_id}/locations/us-central1/ragCorpora?page_size=100`;
 
@@ -115,7 +130,7 @@ async function createRagCorpus(): Promise<string> {
   const operationResponse = await client.request({
     url: corpusUrl,
     method: "POST",
-    data: { display_name: "user_2" },
+    data: { display_name: "the-missing-readme" },
   });
 
   const data = operationResponse.data as OperationResponse;
@@ -196,6 +211,8 @@ async function listRagFiles(corpusName: string) {
   const listFilesUrl = `https://us-central1-aiplatform.googleapis.com/v1/${corpusName}/ragFiles`;
 
   const response = await client.request({ url: listFilesUrl });
+  console.log(response.data);
+
   // @ts-ignore
   return response.data || [];
 }
@@ -435,7 +452,7 @@ async function generateContentWithGoogleSearchGrounding(
         role: "user",
         parts: [
           {
-            text: "mujhe charles ki skills kai bare main detail se batana janu.",
+            text: "mujhe Usman Gauhar ki skills kai bare main detail se batana.",
           },
         ],
       },
@@ -645,23 +662,74 @@ async function generateContentWithGoogleSearchGrounding(
   console.log("GroundingMetadata is: ", JSON.stringify(groundingMetadata));
 }
 
+async function deleteRagFile(ragFilePath: string): Promise<void> {
+  const deleteUrl = `https://us-central1-aiplatform.googleapis.com/v1/${ragFilePath}`;
+
+  try {
+    const response = await client.request({
+      url: deleteUrl,
+      method: "DELETE",
+    });
+
+    const data = response.data as OperationResponse;
+    console.log(`Delete file operation started: ${data.name}`);
+
+    // Poll the operation to check its status
+    const operationUrl = `https://us-central1-aiplatform.googleapis.com/v1/${data.name}`;
+
+    let operationComplete = false;
+    let operationResult;
+
+    while (!operationComplete) {
+      const operationResponse = await client.request({
+        url: operationUrl,
+        method: "GET",
+      });
+
+      operationResult = operationResponse.data as DeleteRagCorpusFileResponse;
+
+      if (operationResult?.done) {
+        operationComplete = true;
+        console.log("Delete file operation completed:", operationResult);
+      } else {
+        console.log("Delete file operation still in progress, waiting...");
+        // Wait for 2 seconds before checking again
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+      }
+    }
+
+    console.log(`RAG file ${ragFilePath} deleted successfully`);
+  } catch (error) {
+    console.error(`Error deleting RAG file ${ragFilePath}:`, error);
+    throw error;
+  }
+}
+
 // Main execution
 async function main() {
   try {
     // const corpusName = await createRagCorpus();
-    // await getRagCorpus();
-    // await deleteRagCorpus("4532873024948404224");
-    // await importFiles(corpusName);
-    // await uploadFile(corpusName, "./software-engineer-resume-example.pdf");
+    await getRagCorpus();
+    // await deleteRagCorpus("7054888816275881984");
+    // await importFiles(
+    //   "projects/fivegrid-ai-dev/locations/us-central1/ragCorpora/3596124302455341056"
+    // );
+    // await uploadFile(
+    //   "projects/402744541901/locations/us-central1/ragCorpora/3379951520341557248",
+    //   "./4-Writing operable code.pdf"
+    // );
     // const retrieval = await makeRetreival("projects/fivegrid-ai-dev/locations/us-central1/ragCorpora/4749045807062188032","What is the name of the person in the resume?");
     // console.log(retrieval.contexts.contexts);
     // const query = await makeQuery("projects/fivegrid-ai-dev/locations/us-central1/ragCorpora/4749045807062188032","Write a greeting for the person in the resume, that includes his name and his details.");
     // console.log(query.candidates[0].content);
-
-    await generateContentWithGoogleSearchGrounding(
-      "projects/fivegrid-ai-dev/locations/us-central1/ragCorpora/4749045807062188032",
-      "gemini-2.0-flash-001"
-    );
+    // await generateContentWithGoogleSearchGrounding(
+    //   "projects/fivegrid-ai-dev/locations/us-central1/ragCorpora/4749045807062188032",
+    //   "gemini-2.0-flash-001"
+    // );
+    // await listRagFiles(
+    //   "projects/fivegrid-ai-dev/locations/us-central1/ragCorpora/5325506559365611520"
+    // );
+    // await deleteRagFile("projects/fivegrid-ai-dev/locations/us-central1/ragCorpora/3596124302455341056/ragFiles/5399441350948351401");
   } catch (error) {
     console.error(error);
   }
